@@ -1,0 +1,14 @@
+#!/bin/sh
+#
+# A script to use the fuzzy finder as a replacement for dmenu. Will likely be
+# problematic if you use a tiling window manager, like XMonad, which uses X11's
+# window border property in such a way it will interfere with the width and
+# height of the window in the end.
+#
+# If it's useful to you, the window class is 'fzfmenu'. You can use this to
+# center the window manually through your window manager configuration.
+#
+# Depends on: st, fzf
+
+exec st -n 'fzfmenu' -c 'fzfmenu' -t 'fzfmenu' -g 120x25 \
+  -e sh -c "fzf --inline-info $* < /proc/$$/fd/0 > /proc/$$/fd/1"
