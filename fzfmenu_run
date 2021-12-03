@@ -1,0 +1,18 @@
+#!/bin/sh
+#
+# The fzfmenu alternative to dmenu's dmenu_run. Instead of something something
+# clever, just use 'find' to find executable files in the directories in $PATH.
+# That should cover most use cases.
+#
+# Depends on: find, fzfmenu
+
+allexecs() {
+  local IFS=:
+  for path in $PATH; do
+    find "$path" -type f,l -executable -printf '%f\n' 2>/dev/null
+  done | uniq | sort
+}
+
+choice="$(allexecs | fzfmenu +m --reverse --print-query 2>/dev/null | tail -1)"
+
+[ -n "$choice" ] && nohup $choice 2>/dev/null >/dev/null &
