@@ -1,0 +1,41 @@
+#!/bin/bash
+#
+# This script tries to upload the contents of the file named in the first
+# argument passed to it, or, if none, the contents of stdin to file hosts listed
+# here. It respects the order of preference in the `hostPreference` array.
+#
+# Depends on: curl
+
+declare -A hostRegistry
+declare -a hostPreference
+
+hostPreference=(0x0st uguu teknik)
+
+hostRegistry=(
+	[uguuUrl]="https://uguu.se/api.php?d=upload-tool"
+	[uguuField]="file"
+	[0x0stUrl]="0x0.st"
+	[0x0stField]="file"
+	[teknikUrl]="https://api.teknik.io/v1/Upload"
+	[teknikField]="file"
+)
+
+if [[ -n "$1" ]]; then
+	fileName="$1"
+else
+	fileName=$(< /dev/stdin)
+fi
+
+# exit early if we don't have a file or can't read it
+if [[ ! -r "$fileName" ]]; then
+	exit 1
+fi
+
+for host in "${hostPreference[@]}"; do
+	response=$(curl -s -F "${hostRegistry[${host}Field]}=@$fileName" \
+		"${hostRegistry[${host}Url]}")
+	if [[ "$?" -eq 0 && -n "$response" ]]; then
+		echo "$response"
+		exit
+	fi
+done
