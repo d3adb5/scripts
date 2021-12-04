@@ -36,6 +36,7 @@ else
 fi
 
 file_name="${1:-$(< /dev/stdin)}"
+[[ -r "$file_name" ]] || exit 1
 
 for host in "${host_preference[@]}"; do
   host_response=$(curl -s -F "${host_registry[field_$host]}=@$file_name" \
