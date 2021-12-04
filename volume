@@ -1,0 +1,72 @@
+#!/bin/bash
+#
+# Script to manipulate the volume for the currently active pulseaudio sink.
+# Perfect for keybinds. Makes use of pamixer for simplicity and dunstify for
+# notifications that can be edited (replaced).
+#
+# This is what happens when someone refuses to use something like a Desktop
+# Environment while maintaining DE-like features, such as editable notifications
+# for volume changes.
+
+declare -r DUNST_ID_FILE="/tmp/dunst_id_volume"
+
+function getDunstId
+{
+	[[ -e "$DUNST_ID_FILE" ]] && dunstId=$(< "$DUNST_ID_FILE")
+	if [[ ! -e "$DUNST_ID_FILE" || "$dunstId" -lt 0 ]]; then
+		dunstId=$RANDOM
+		echo "$dunstId" > "$DUNST_ID_FILE"
+	fi
+	declare -r dunstId="$dunstId"
+}
+
+function changeVolume
+{
+	local newVolume=$(( $(pamixer --get-volume) + $1 ))
+	local increment=$1
+	pamixer --set-volume "$newVolume"
+	if [ "$increment" -gt 0 ]; then
+		dunstify -r "$dunstId" "volume increased ($newVolume%)" \
+			"Increased by $increment%."
+	else
+		dunstify -r "$dunstId" "volume decreased ($newVolume%)" \
+			"Decreased by ${increment#-}%."
+	fi
+}
+
+function toggleMute
+{
+	pamixer -t
+	if [[ "$(pamixer --get-mute)" = "false" ]]; then
+		dunstify -r "$dunstId" "volume unmuted" "You should hear things now."
+	else
+		dunstify -r "$dunstId" "volume muted" "You shouldn't hear a thing."
+	fi
+}
+
+function main
+{
+	getDunstId
+	while [[ "$#" -gt 0 ]]; do
+		case "$1" in
+			-i|--increase)
+				changeVolume 5
+				shift
+				;;
+			-d|--decrease)
+				changeVolume -5
+				shift
+				;;
+			-m|--mute)
+				toggleMute
+				shift
+				;;
+			*)
+				echo "unrecognized option: $1"
+				exit 1
+				;;
+		esac
+	done
+}
+
+main "$@"
