@@ -1,10 +1,10 @@
 #!/bin/bash
 #
-# Upload a file given as a first argument or, in its absence, passed through
-# stdin. This script uses associative arrays, a Bash feature that resembles
-# hashmaps or Python dictionaries. Since arrays and associative arrays are not
-# part of POSIX sh, this Bashism is sadly unavoidable here unless I choose to
-# write inelegant POSIX sh code or use a different language.
+# Upload a file whose path given as a first argument or, in its absence, passed
+# through stdin. This script uses associative arrays, a Bash feature that
+# resembles hashmaps or Python dictionaries. Since arrays and associative arrays
+# are not part of POSIX sh, this Bashism is sadly unavoidable here unless I
+# choose to write inelegant POSIX sh code or use a different language.
 #
 # The environment variables UPLOAD_HOST_PREFERENCE and UPLOAD_HOST_REGISTRY will
 # be used for the file host preference (priority) list and for the list of
