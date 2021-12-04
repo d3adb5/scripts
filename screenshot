@@ -1,0 +1,20 @@
+#!/bin/sh
+#
+# Helper script to take screenshots using maim, passing arguments directly to it
+# so flags can be used to involve slop and whatnot. It also sents a notification
+# if maim fails to take a screenshot (or it is cancelled). Finally, it outputs
+# the path to the screenshot it took for convenience.
+#
+# The environment variable TMP_SCREENSHOT_PATH will be used as a destination, if
+# set, otherwise it saves screenshots to /dev/shm/screenshot.png.
+#
+# Depends on: maim, notify-send
+
+img_path="${TMP_SCREENSHOT_PATH:-/dev/shm/screenshot.png}"
+
+if ! maim "$@" -u "$img_path"; then
+	notify-send "screenshot failed" "maim failed to take a screenshot"
+	exit 1
+fi
+
+echo "$img_path"
