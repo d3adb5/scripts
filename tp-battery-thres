@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# Since I flashed coreboot onto my X220, tp_smapi has been unable to set battery
+# charging thresholds due to the new BIOS. However, communicating directly with
+# the embedded controller through ectool allows you to set them in a very
+# "roundabout" way.
+#
+# This script is the story of that way.
+#
+# Depends on: ectool
+
+initCharging=$(($1 + 128))
+stopCharging=$(($2 + 128))
+
+if [ -n "${2+set}" ]; then
+	echo "Setting stop threshold to $2%..."
+	stopHex=$(printf "0x%x" "$stopCharging")
+	sudo ectool -w 0x3 -z 0x44 >/dev/null
+	sudo ectool -w 0x24 -z "$stopHex" >/dev/null
+fi
+
+if [ -n "${1+set}" ]; then
+	echo "Setting start threshold to $1%..."
+	initHex=$(printf "0x%x" "$initCharging")
+	sudo ectool -w 0x3 -z 0x40 >/dev/null
+	sudo ectool -w 0x24 -z "$initHex" >/dev/null
+fi
