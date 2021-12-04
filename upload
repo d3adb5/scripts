@@ -1,41 +1,47 @@
 #!/bin/bash
 #
-# This script tries to upload the contents of the file named in the first
-# argument passed to it, or, if none, the contents of stdin to file hosts listed
-# here. It respects the order of preference in the `hostPreference` array.
+# Upload a file given as a first argument or, in its absence, passed through
+# stdin. This script uses associative arrays, a Bash feature that resembles
+# hashmaps or Python dictionaries. Since arrays and associative arrays are not
+# part of POSIX sh, this Bashism is sadly unavoidable here unless I choose to
+# write inelegant POSIX sh code or use a different language.
 #
-# Depends on: curl
+# The environment variables UPLOAD_HOST_PREFERENCE and UPLOAD_HOST_REGISTRY will
+# be used for the file host preference (priority) list and for the list of
+# available file hosts, respectively, if set. Otherwise, some defaults are
+# provided herein.
+#
+# Depends on: bash, curl, patience
 
-declare -A hostRegistry
-declare -a hostPreference
+declare -A host_registry
+declare -a host_preference
 
-hostPreference=(0x0st uguu teknik)
+[[ -v UPLOAD_HOST_PREFERENCE ]] \
+  && host_preference=("${UPLOAD_HOST_PREFERENCE[@]}") \
+  || host_preference=(0x0st uguu teknik)
 
-hostRegistry=(
-	[uguuUrl]="https://uguu.se/api.php?d=upload-tool"
-	[uguuField]="file"
-	[0x0stUrl]="0x0.st"
-	[0x0stField]="file"
-	[teknikUrl]="https://api.teknik.io/v1/Upload"
-	[teknikField]="file"
-)
-
-if [[ -n "$1" ]]; then
-	fileName="$1"
+if [[ -v UPLOAD_HOST_REGISTRY ]]; then
+  for host_name in "${!UPLOAD_HOST_REGISTRY[@]}"; do
+    host_registry["$host_name"]="${UPLOAD_HOST_REGISTRY[$host_name]}"
+  done
 else
-	fileName=$(< /dev/stdin)
+  host_registry=(
+    [url_uguu]="https://uguu.se/api.php?d=upload-tool"
+    [url_0x0st]="http://0x0.st"
+    [url_teknik]="https://api.teknik.io/v1/Upload"
+    [field_uguu]="file"
+    [field_0x0st]="file"
+    [field_teknik]="file"
+  )
 fi
 
-# exit early if we don't have a file or can't read it
-if [[ ! -r "$fileName" ]]; then
-	exit 1
-fi
+file_name="${1:-$(< /dev/stdin)}"
 
-for host in "${hostPreference[@]}"; do
-	response=$(curl -s -F "${hostRegistry[${host}Field]}=@$fileName" \
-		"${hostRegistry[${host}Url]}")
-	if [[ "$?" -eq 0 && -n "$response" ]]; then
-		echo "$response"
-		exit
-	fi
+for host in "${host_preference[@]}"; do
+  host_response=$(curl -s -F "${host_registry[field_$host]}=@$file_name" \
+    "${host_registry[url_$host]}")
+  if [[ $? -eq 0 && -n "$host_response" ]]; then
+    echo "$host_response"
+    exit
+  fi
 done
