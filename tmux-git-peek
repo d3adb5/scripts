@@ -1,12 +1,12 @@
 #!/bin/sh
 #
-# Create a pane to the right of the current tmux pane with the git log on it so
-# one can easily "peek" at it. The new pane will be immediately focused, so the
-# user can quit the log screen and consequently kill the pane that was created.
+# Diplay a popup on top of all other panes spanning 65% in width and height and
+# containing a short git log so one can easily "peek" at it. The popup window
+# should close the moment the user quits the log screen.
 #
 # Should be invoked only from within a git working tree.
 #
 # Depends on: tmux, git
 
-exec tmux split-window -h -l 67 -c "#{pane_current_path}" \
+exec tmux display-popup -E -w 65% -h 65% -d '#{pane_current_path}' \
   git log --oneline --color --graph --decorate=false
