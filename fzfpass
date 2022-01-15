@@ -1,0 +1,23 @@
+#!/bin/sh
+#
+# A script that uses fzfmenu to make it easy to pick a password in the password
+# store of 'pass', the unix password manager. It should be coupled with a
+# pinentry program that has a GUI.
+#
+# This script works best if the current pinentry program used by the GnuPG agent
+# is set to the pinentry-select script. If it is, you should see a graphical
+# pinentry program on the screen.
+#
+# Depends on: find, fzfmenu, pass, pinentry-select
+
+export PINENTRY_USER_DATA=gui
+
+passDir="${PASSWORD_STORE_DIR:-$HOME/.password-store}"
+
+passwordList() {
+  find "$passDir"/* -type f -not -name '.*' | sed "s|.gpg$||;s|^$passDir/||"
+}
+
+choice="$(passwordList | fzfmenu +m --reverse)"
+
+[ -n "$choice" ] && pass -c "$choice"
