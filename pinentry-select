@@ -4,15 +4,19 @@
 # different pinentry program at any time, since it isn't so easy to do with
 # gpg-agent. :(
 
-case "$PINENTRY_USER_DATA" in
+case "${PINENTRY_USER_DATA:-curses}" in
   gui|gtk)
     exec /usr/bin/pinentry-gtk-2 "$@"
     ;;
 
-  none)
+  cli|curses)
+    exec /usr/bin/pinentry-curses "$@"
+    ;;
+
+  none|select)
     exit 1
     ;;
 
-  cli|curses|*)
-    exec /usr/bin/pinentry-curses "$@"
+  *)
+    exec /usr/bin/pinentry-"$PINENTRY_USER_DATA" "$@"
 esac
