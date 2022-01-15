@@ -10,7 +10,7 @@ allexecs() {
   local IFS=:
   for path in $PATH; do
     find "$path" -type f,l -executable -printf '%f\n' 2>/dev/null
-  done | uniq | sort
+  done | sort | uniq
 }
 
 choice="$(allexecs | fzfmenu +m --reverse --print-query 2>/dev/null | tail -1)"
