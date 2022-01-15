@@ -1,0 +1,18 @@
+#!/bin/sh
+#
+# This script serves as a replacement pinentry program, used solely to select a
+# different pinentry program at any time, since it isn't so easy to do with
+# gpg-agent. :(
+
+case "$PINENTRY_USER_DATA" in
+  gui|gtk)
+    exec /usr/bin/pinentry-gtk-2 "$@"
+    ;;
+
+  none)
+    exit 1
+    ;;
+
+  cli|curses|*)
+    exec /usr/bin/pinentry-curses "$@"
+esac
