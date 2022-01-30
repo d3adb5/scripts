@@ -1,4 +1,13 @@
 #!/bin/sh
+#
+# A script to record the screen using ffmpeg, with support for recording audio
+# from both the screen and a microphone, to record a specific part of the screen
+# selected using slop, and even running screenkey to show what keys you're
+# pressing.
+#
+# dmenu is used to pick the sinks used for sound.
+#
+# Depends on: ffmpeg, slop, screenkey, pulseaudio, dmenu
 
 pidFile="$XDG_RUNTIME_DIR/record_script.pid"
 outFile="/tmp/screen-recording.mkv"
