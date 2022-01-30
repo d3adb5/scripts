@@ -1,0 +1,17 @@
+name: CI
+
+on:
+  pull_request: {}
+  push:
+    branches: [ master ]
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout files in the repository
+        uses: actions/checkout@v2
+      - name: Analyze files with ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with: { severity: warning }
