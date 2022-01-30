@@ -7,7 +7,7 @@
 # Depends on: find, fzfmenu
 
 allexecs() {
-  local IFS=:
+  IFS=:
   for path in $PATH; do
     find "$path" -type f,l -executable -printf '%f\n' 2>/dev/null
   done | sort | uniq
