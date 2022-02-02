@@ -7,103 +7,92 @@
 #
 # fzfmenu is used to pick the sinks used for sound.
 #
-# Depends on: ffmpeg, slop, screenkey, pulseaudio, fzfmenu
+# Depends on: ffmpeg, slop, screenkey, pulseaudio, fzfmenu, xrandr
 
-pidFile="$XDG_RUNTIME_DIR/record_script.pid"
-outFile="/tmp/screen-recording.mkv"
+pidfile="${XDG_RUNTIME_DIR:-/dev/shm}/record-script.pid"
+output="/dev/shm/screen-recording.mkv"
 
-frameRate=60
-recordMicrophone=0
-recordSound=0
-runScreenkey=0
-runSlop=0
+framerate=60    # framerate for capture
+usemicrophone=0 # record the microphone input
+usespeakers=0   # record sound coming from the computer
+usescreenkey=0  # show keys being pressed on the screen
+useslop=0       # select area or window that will be recorded
 
-if [ -e "$pidFile" ]; then
-	kill -s INT "$(cat "$pidFile")" > /dev/null
-	killall screenkey 2>/dev/null
-	rm "$pidFile"
-	notify-send -u low "stopped recording" "Process killed."
-	exit 0
+cmdline='ffmpeg -y'
+
+if [ -e "$pidfile" ] && [ -d "/proc/$(cat "$pidfile")" ]; then
+  kill -s INT "$(cat "$pidfile")" >/dev/null
+  killall screenkey 2>/dev/null
+  rm "$pidfile"
+  notify-send -u low 'Recording stopped!' 'FFmpeg process has been killed.'
+  exit 0
 fi
 
 while [ "$#" -gt 0 ]; do
-	case "$1" in
-		-s|--sound|--record-sound)
-			recordSound=1
-			frameRate=30
-			shift
-			;;
-		-m|--microphone|--record-microphone)
-			recordMicrophone=1
-			frameRate=30
-			shift
-			;;
-		-f|--framerate|--target-framerate)
-			frameRate="$2"
-			shift 2
-			;;
-		-l|--slop|--run-slop)
-			runSlop=1
-			shift
-			;;
-		-k|--screenkey|--keys|--run-screenkey)
-			runScreenkey=1
-			shift
-			;;
-		*)
-			outFile="$1"
-			shift
-			;;
-	esac
+  case "$1" in
+    -s|--sound|--with-sound|--record-sound)
+      usespeakers=1
+      shift ;;
+    -m|--microphone|--with-microphone|--record-microphone)
+      usemicrophone=1
+      shift ;;
+    -l|--slop|--use-slop|--run-slop)
+      useslop=1
+      shift ;;
+    -k|--screenkey|--with-screenkey|--run-screenkey)
+      usescreenkey=1
+      shift ;;
+    -f|--framerate|--with-framerate|--target-framerate)
+      framerate="$2"
+      shift 2 ;;
+    *)
+      output="$1"
+      shift ;;
+  esac
 done
 
-ffmpegArguments="-framerate $frameRate -hwaccel vaapi -thread_queue_size 4096"
-ffmpegArguments="$ffmpegArguments -f x11grab"
+cmdline="$cmdline -framerate $framerate -thread_queue_size 4096 -f x11grab"
 
-if [ "$runSlop" -eq 1 ]; then
-	read -r X Y W H << EOF
-$(slop -f "%x %y %w %h")
-EOF
-	if [ $((W % 2)) -ne 0 ]; then
-		W=$((W + 1))
-	fi
-	ffmpegArguments="$ffmpegArguments -s ${W}x$H -i $DISPLAY.0+$X,$Y"
+if [ "$useslop" -eq 1 ]; then
+  eval "$(slop -f 'X=%x Y=%y W=%w H=%h')"
+
+  [ $((W % 2)) -ne 0 ] && W=$((W + 1)) # H.264 wants only even width and height
+  [ $((H % 2)) -ne 0 ] && H=$((H + 1)) # and will not accept otherwise! :(
+
+  cmdline="$cmdline -s ${W}x${H} -i $DISPLAY.0+$X,$Y"
 else
-	ffmpegArguments="$ffmpegArguments -s $(xrandr | grep -F '*' \
-		| awk '{print $1}') -i $DISPLAY.0"
+  resolution="$(xrandr | grep -F '*' | awk '{print $1}' | sed 1q)"
+  cmdline="$cmdline -s $resolution -i $DISPLAY.0"
 fi
 
-if [ "$recordSound" -eq 1 ]; then
-	pulseSource="$(pactl list short sources | awk '{print $1 " " $2}' \
-		| fzfmenu --prompt='Sound: ' | awk '{print $1}')"
-	ffmpegArguments="$ffmpegArguments -thread_queue_size 4096 -f pulse"
-	ffmpegArguments="$ffmpegArguments -i $pulseSource"
+if [ "$usespeakers" -eq 1 ]; then
+  pasrc="$(pactl list short sources | awk '{print $1 " " $2}' \
+    | fzfmenu --prompt='Sound: ' | awk '{print $1}')"
+  cmdline="$cmdline -thread_queue_size 4096 -f pulse -i $pasrc"
 fi
 
-if [ "$recordMicrophone" -eq 1 ]; then
-	pulseSource="$(pactl list short sources | awk '{print $1 " " $2}' \
-		| fzfmenu --prompt='Microphone: ' | awk '{print $1}')"
-	ffmpegArguments="$ffmpegArguments -thread_queue_size 4096 -f pulse"
-	ffmpegArguments="$ffmpegArguments -i $pulseSource"
+if [ "$usemicrophone" -eq 1 ]; then
+  pasrc="$(pactl list short sources | awk '{print $1 " " $2}' \
+    | fzfmenu --prompt='Microphone: ' | awk '{print $1}')"
+  cmdline="$cmdline -thread_queue_size 4096 -f pulse -i $pasrc"
 fi
 
-if [ "$recordSound" -eq 1 ] || [ "$recordMicrophone" -eq 1 ]; then
-	ffmpegArguments="$ffmpegArguments -acodec libfdk_aac -b:a 128k"
-	if [ "$recordSound" -eq 1 ] && [ "$recordMicrophone" -eq 1 ]; then
-		ffmpegArguments="$ffmpegArguments -filter_complex amix"
-	fi
+[ "$usespeakers" -eq 1 ] || [ "$usemicrophone" -eq 1 ] \
+  && cmdline="$cmdline -c:a aac -b:a 128k"
+
+[ "$usespeakers" -eq 1 ] && [ "$usemicrophone" -eq 1 ] \
+  && cmdline="$cmdline -filter_complex amix"
+
+cmdline="$cmdline -c:v libx264 -crf 0 -pix_fmt yuv420p -preset ultrafast"
+
+if [ "$usescreenkey" -eq 1 ] && [ "$useslop" -eq 1 ]; then
+  screenkey -t 2 -s small -g "${W}x${H}+${X}+${Y}" &
+elif [ "$usescreenkey" -eq 1 ]; then
+  screenkey -t 2 -s small &
 fi
 
-ffmpegArguments="$ffmpegArguments -vcodec libx264 -crf 0 -pix_fmt yuv420p"
-ffmpegArguments="$ffmpegArguments -preset ultrafast"
+echo "$$" > "$pidfile"
 
-notify-send -u low "started recording" "Don't do anything suspicious!"
+notify-send -u low 'Recording started!' "Don't do anything suspicious!"
 
-if [ "$runSlop" -eq 1 ] && [ "$runScreenkey" -eq 1 ]; then
-	screenkey -t 2 -s small -g "${W}x${H}+${X}+${Y}" &
-elif [ "$runScreenkey" -eq 1 ]; then
-	screenkey -t 2 -s small &
-fi
-
-echo "$$" > "$pidFile"
-exec ffmpeg -y $ffmpegArguments "$outFile"
+exec $cmdline "$output"
