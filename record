@@ -1,13 +1,12 @@
 #!/bin/sh
 #
-# A script to record the screen using ffmpeg, with support for recording audio
-# from both the screen and a microphone, to record a specific part of the screen
-# selected using slop, and even running screenkey to show what keys you're
-# pressing.
+# A script to record a specific part of the screen using ffmpeg, with support
+# for recording audio from up to 2 PulseAudio audio sources, and for running
+# screenkey to show what keys are being pressed in real time.
 #
-# fzfmenu is used to pick the sinks used for sound.
+# fzfmenu is used to pick the sources used for sound.
 #
-# Depends on: ffmpeg, slop, screenkey, pulseaudio, fzfmenu, xrandr
+# Depends on: ffmpeg, slop, screenkey, pulseaudio, fzfmenu
 
 pidfile="${XDG_RUNTIME_DIR:-/dev/shm}/record-script.pid"
 output="/dev/shm/screen-recording.mkv"
@@ -16,7 +15,6 @@ framerate=60    # framerate for capture
 usemicrophone=0 # record the microphone input
 usespeakers=0   # record sound coming from the computer
 usescreenkey=0  # show keys being pressed on the screen
-useslop=0       # select area or window that will be recorded
 
 cmdline='ffmpeg -y'
 
@@ -36,9 +34,6 @@ while [ "$#" -gt 0 ]; do
     -m|--microphone|--with-microphone|--record-microphone)
       usemicrophone=1
       shift ;;
-    -l|--slop|--use-slop|--run-slop)
-      useslop=1
-      shift ;;
     -k|--screenkey|--with-screenkey|--run-screenkey)
       usescreenkey=1
       shift ;;
@@ -53,17 +48,12 @@ done
 
 cmdline="$cmdline -framerate $framerate -thread_queue_size 4096 -f x11grab"
 
-if [ "$useslop" -eq 1 ]; then
-  eval "$(slop -f 'X=%x Y=%y W=%w H=%h')"
+eval "$(slop -f 'X=%x Y=%y W=%w H=%h')"
 
-  [ $((W % 2)) -ne 0 ] && W=$((W + 1)) # H.264 wants only even width and height
-  [ $((H % 2)) -ne 0 ] && H=$((H + 1)) # and will not accept otherwise! :(
+[ $((W % 2)) -ne 0 ] && W=$((W + 1)) # H.264 wants only even width and height
+[ $((H % 2)) -ne 0 ] && H=$((H + 1)) # and will not accept otherwise! :(
 
-  cmdline="$cmdline -s ${W}x${H} -i $DISPLAY.0+$X,$Y"
-else
-  resolution="$(xrandr | grep -F '*' | awk '{print $1}' | sed 1q)"
-  cmdline="$cmdline -s $resolution -i $DISPLAY.0"
-fi
+cmdline="$cmdline -s ${W}x${H} -i $DISPLAY.0+$X,$Y"
 
 if [ "$usespeakers" -eq 1 ]; then
   pasrc="$(pactl list short sources | awk '{print $1 " " $2}' \
@@ -85,11 +75,7 @@ fi
 
 cmdline="$cmdline -c:v libx264 -crf 0 -pix_fmt yuv420p -preset ultrafast"
 
-if [ "$usescreenkey" -eq 1 ] && [ "$useslop" -eq 1 ]; then
-  screenkey -t 2 -s small -g "${W}x${H}+${X}+${Y}" &
-elif [ "$usescreenkey" -eq 1 ]; then
-  screenkey -t 2 -s small &
-fi
+[ "$usescreenkey" -eq 1 ] && screenkey -t 2 -s small -g "${W}x${H}+${X}+${Y}" &
 
 echo "$$" > "$pidfile"
 
