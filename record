@@ -5,9 +5,9 @@
 # selected using slop, and even running screenkey to show what keys you're
 # pressing.
 #
-# dmenu is used to pick the sinks used for sound.
+# fzfmenu is used to pick the sinks used for sound.
 #
-# Depends on: ffmpeg, slop, screenkey, pulseaudio, dmenu
+# Depends on: ffmpeg, slop, screenkey, pulseaudio, fzfmenu
 
 pidFile="$XDG_RUNTIME_DIR/record_script.pid"
 outFile="/tmp/screen-recording.mkv"
@@ -75,14 +75,14 @@ fi
 
 if [ "$recordSound" -eq 1 ]; then
 	pulseSource="$(pactl list short sources | awk '{print $1 " " $2}' \
-		| dmenu -l 10 -p 'Sound:' | awk '{print $1}')"
+		| fzfmenu --prompt='Sound: ' | awk '{print $1}')"
 	ffmpegArguments="$ffmpegArguments -thread_queue_size 4096 -f pulse"
 	ffmpegArguments="$ffmpegArguments -i $pulseSource"
 fi
 
 if [ "$recordMicrophone" -eq 1 ]; then
 	pulseSource="$(pactl list short sources | awk '{print $1 " " $2}' \
-		| dmenu -l 10 -p 'Microphone:' | awk '{print $1}')"
+		| fzfmenu --prompt='Microphone: ' | awk '{print $1}')"
 	ffmpegArguments="$ffmpegArguments -thread_queue_size 4096 -f pulse"
 	ffmpegArguments="$ffmpegArguments -i $pulseSource"
 fi
