@@ -1,0 +1,71 @@
+#!/bin/sh
+#
+# A script to record a specific part of the screen using ffmpeg, with support
+# for recording audio from multiple PulseAudio audio sources, and for running
+# screenkey to show what keys are being pressed in real time.
+#
+# fzfmenu is used to pick the sources used for sound.
+#
+# Depends on: ffmpeg, slop, screenkey, pulseaudio, fzfmenu
+
+pidfile="${XDG_RUNTIME_DIR:-/dev/shm}/record-script.pid"
+output="/dev/shm/screen-recording.mkv"
+
+framerate=60    # framerate for capture
+audiosources=0  # number of audio sources to record
+usescreenkey=0  # show keys being pressed on the screen
+
+cmdline='ffmpeg -y'
+
+if [ -e "$pidfile" ] && [ -d "/proc/$(cat "$pidfile")" ]; then
+  kill -s INT "$(cat "$pidfile")" >/dev/null
+  killall screenkey 2>/dev/null
+  rm "$pidfile"
+  notify-send -u low 'Recording stopped!' 'FFmpeg process has been killed.'
+  exit 0
+fi
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -k|--screenkey|--with-screenkey|--run-screenkey)
+      usescreenkey=1
+      shift ;;
+    -s|--sources|--audio-sources|--audio)
+      audiosources="$2"
+      shift 2 ;;
+    -f|--framerate|--with-framerate|--target-framerate)
+      framerate="$2"
+      shift 2 ;;
+    *)
+      output="$1"
+      shift ;;
+  esac
+done
+
+cmdline="$cmdline -framerate $framerate -thread_queue_size 4096 -f x11grab"
+
+eval "$(slop -f 'X=%x Y=%y W=%w H=%h')"
+
+[ $((W % 2)) -ne 0 ] && W=$((W + 1)) # H.264 wants only even width and height
+[ $((H % 2)) -ne 0 ] && H=$((H + 1)) # and will not accept otherwise! :(
+
+cmdline="$cmdline -s ${W}x${H} -i $DISPLAY.0+$X,$Y"
+
+for src in $(seq "$audiosources"); do
+  pasrc="$(pactl list short sources | awk '{print $1 " " $2}' \
+    | fzfmenu --prompt="Source $src: " | awk '{print $1}')"
+  cmdline="$cmdline -thread_queue_size 4096 -f pulse -i $pasrc"
+done
+
+[ "$audiosources" -gt 0 ] && cmdline="$cmdline -c:a aac -b:a 128k"
+[ "$audiosources" -gt 1 ] && cmdline="$cmdline -filter_complex amix"
+
+cmdline="$cmdline -c:v libx264 -crf 0 -pix_fmt yuv420p -preset ultrafast"
+
+[ "$usescreenkey" -eq 1 ] && screenkey -t 2 -s small -g "${W}x${H}+${X}+${Y}" &
+
+echo "$$" > "$pidfile"
+
+notify-send -u low 'Recording started!' "Don't do anything suspicious!"
+
+exec $cmdline "$output"
