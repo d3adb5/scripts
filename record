@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # A script to record a specific part of the screen using ffmpeg, with support
-# for recording audio from up to 2 PulseAudio audio sources, and for running
+# for recording audio from multiple PulseAudio audio sources, and for running
 # screenkey to show what keys are being pressed in real time.
 #
 # fzfmenu is used to pick the sources used for sound.
@@ -12,8 +12,7 @@ pidfile="${XDG_RUNTIME_DIR:-/dev/shm}/record-script.pid"
 output="/dev/shm/screen-recording.mkv"
 
 framerate=60    # framerate for capture
-usemicrophone=0 # record the microphone input
-usespeakers=0   # record sound coming from the computer
+audiosources=0  # number of audio sources to record
 usescreenkey=0  # show keys being pressed on the screen
 
 cmdline='ffmpeg -y'
@@ -28,15 +27,12 @@ fi
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    -s|--sound|--with-sound|--record-sound)
-      usespeakers=1
-      shift ;;
-    -m|--microphone|--with-microphone|--record-microphone)
-      usemicrophone=1
-      shift ;;
     -k|--screenkey|--with-screenkey|--run-screenkey)
       usescreenkey=1
       shift ;;
+    -s|--sources|--audio-sources|--audio)
+      audiosources="$2"
+      shift 2 ;;
     -f|--framerate|--with-framerate|--target-framerate)
       framerate="$2"
       shift 2 ;;
@@ -55,23 +51,14 @@ eval "$(slop -f 'X=%x Y=%y W=%w H=%h')"
 
 cmdline="$cmdline -s ${W}x${H} -i $DISPLAY.0+$X,$Y"
 
-if [ "$usespeakers" -eq 1 ]; then
+for src in $(seq "$audiosources"); do
   pasrc="$(pactl list short sources | awk '{print $1 " " $2}' \
-    | fzfmenu --prompt='Sound: ' | awk '{print $1}')"
+    | fzfmenu --prompt="Source $src: " | awk '{print $1}')"
   cmdline="$cmdline -thread_queue_size 4096 -f pulse -i $pasrc"
-fi
+done
 
-if [ "$usemicrophone" -eq 1 ]; then
-  pasrc="$(pactl list short sources | awk '{print $1 " " $2}' \
-    | fzfmenu --prompt='Microphone: ' | awk '{print $1}')"
-  cmdline="$cmdline -thread_queue_size 4096 -f pulse -i $pasrc"
-fi
-
-[ "$usespeakers" -eq 1 ] || [ "$usemicrophone" -eq 1 ] \
-  && cmdline="$cmdline -c:a aac -b:a 128k"
-
-[ "$usespeakers" -eq 1 ] && [ "$usemicrophone" -eq 1 ] \
-  && cmdline="$cmdline -filter_complex amix"
+[ "$audiosources" -gt 0 ] && cmdline="$cmdline -c:a aac -b:a 128k"
+[ "$audiosources" -gt 1 ] && cmdline="$cmdline -filter_complex amix"
 
 cmdline="$cmdline -c:v libx264 -crf 0 -pix_fmt yuv420p -preset ultrafast"
 
