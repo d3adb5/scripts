@@ -60,7 +60,7 @@ cmdline="$cmdline -s ${W}x${H} -i $DISPLAY.0+$X,$Y"
 
 for src in $(seq "$audiosources"); do
   pasrc="$(pactl list short sources | awk '{print $1 " " $2}' \
-    | fzfmenu --prompt="'Source $src: '" | awk '{print $1}')"
+    | fzfmenu --prompt="'Source #$src: '" | awk '{print $1}')"
   cmdline="$cmdline -thread_queue_size 4096 -f pulse -i $pasrc"
 done
 
