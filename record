@@ -10,10 +10,12 @@
 
 pidfile="${XDG_RUNTIME_DIR:-/dev/shm}/record-script.pid"
 output="/dev/shm/screen-recording.mkv"
+vafilters="hwupload,scale_vaapi=format=nv12"
 
 framerate=60    # framerate for capture
 audiosources=0  # number of audio sources to record
 usescreenkey=0  # show keys being pressed on the screen
+useVAAPI=0      # whether ffmpeg tries to use VAAPI or not
 
 cmdline='ffmpeg -y'
 
@@ -30,6 +32,9 @@ while [ "$#" -gt 0 ]; do
     -k|--screenkey|--with-screenkey|--run-screenkey)
       usescreenkey=1
       shift ;;
+    --hw|--vaapi)
+      useVAAPI=1
+      shift ;;
     -s|--sources|--audio-sources|--audio)
       audiosources="$2"
       shift 2 ;;
@@ -42,6 +47,8 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+[ "$useVAAPI" -eq 1 ] && cmdline="$cmdline -hwaccel vaapi"
+
 cmdline="$cmdline -framerate $framerate -thread_queue_size 4096 -f x11grab"
 
 eval "$(slop -f 'X=%x Y=%y W=%w H=%h')"
@@ -53,14 +60,16 @@ cmdline="$cmdline -s ${W}x${H} -i $DISPLAY.0+$X,$Y"
 
 for src in $(seq "$audiosources"); do
   pasrc="$(pactl list short sources | awk '{print $1 " " $2}' \
-    | fzfmenu --prompt="Source $src: " | awk '{print $1}')"
+    | fzfmenu --prompt="'Source #$src: '" | awk '{print $1}')"
   cmdline="$cmdline -thread_queue_size 4096 -f pulse -i $pasrc"
 done
 
 [ "$audiosources" -gt 0 ] && cmdline="$cmdline -c:a aac -b:a 128k"
 [ "$audiosources" -gt 1 ] && cmdline="$cmdline -filter_complex amix"
 
-cmdline="$cmdline -c:v libx264 -crf 0 -pix_fmt yuv420p -preset ultrafast"
+[ "$useVAAPI" -eq 1 ] \
+  && cmdline="$cmdline -vf $vafilters -c:v h264_vaapi -qp 5" \
+  || cmdline="$cmdline -c:v libx264 -crf 0 -pix_fmt yuv420p -preset ultrafast"
 
 [ "$usescreenkey" -eq 1 ] && screenkey -t 2 -s small -g "${W}x${H}+${X}+${Y}" &
 
