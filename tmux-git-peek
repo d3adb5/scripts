@@ -13,5 +13,5 @@ cd "$(tmux display-message -p -F '#{pane_current_path}')" || exit 1
 [ "$(git rev-parse --is-inside-work-tree 2>/dev/null)" != true ] && \
   exec tmux display-message -d 1000 "Not in a Git repository!"
 
-exec tmux display-popup -E -w 65% -h 65% -d '#{pane_current_path}' \
-  git log --oneline --color --graph --decorate
+tmux display-popup -E -w 65% -h 65% -d '#{pane_current_path}' \
+  git log --oneline --color --graph --decorate || true
