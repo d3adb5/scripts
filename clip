@@ -1,0 +1,25 @@
+#!/bin/sh
+#
+# Takes input from a file given as argument, a file named on stdin, or the
+# contents of stdin itself and populates the X11 clipboard with it. The file
+# tool is used to get the mime-type for the data being copied.
+#
+# Depends on: xclip
+
+if [ -n "$1" ]; then
+  mimetype="$(file -Lb --mime-type "$1")"
+  xclip -r -selection c -t "$mimetype" < "$1"
+  exit $?
+fi
+
+temp_filename="$(mktemp)"
+cat /dev/stdin > "$temp_filename"
+
+maybe_data_source="$(cat "$temp_filename")"
+[ -r "$maybe_data_source" ] && cat "$maybe_data_source" > "$temp_filename"
+
+mimetype="$(file -Lb --mime-type "$temp_filename")"
+
+xclip -r -selection c -t "$mimetype" < "$temp_filename"
+
+rm "$temp_filename"
