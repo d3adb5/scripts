@@ -15,4 +15,4 @@ allexecs() {
 
 choice="$(allexecs | fzfmenu +m --reverse --print-query 2>/dev/null | tail -1)"
 
-[ -n "$choice" ] && nohup $choice 2>/dev/null >/dev/null &
+[ -n "$choice" ] && exec $choice 2>/dev/null >/dev/null
