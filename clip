@@ -4,11 +4,12 @@
 # contents of stdin itself and populates the X11 clipboard with it. The file
 # tool is used to get the mime-type for the data being copied.
 #
-# Depends on: xclip
+# Depends on: xclip, notify-send
 
 if [ -n "$1" ]; then
   mimetype="$(file -Lb --mime-type "$1")"
   xclip -r -selection c -t "$mimetype" < "$1"
+  notify-send "Updated clipboard!" "Contains data from: $1"
   exit $?
 fi
 
@@ -21,5 +22,6 @@ maybe_data_source="$(cat "$temp_filename")"
 mimetype="$(file -Lb --mime-type "$temp_filename")"
 
 xclip -r -selection c -t "$mimetype" < "$temp_filename"
+notify-send "Updated clipboard!" "Got data piped into it."
 
 rm "$temp_filename"
