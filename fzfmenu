@@ -10,5 +10,5 @@
 #
 # Depends on: st, fzf
 
-exec st -n 'fzfmenu' -c 'fzfmenu' -t 'fzfmenu' -g 120x25 \
-  -e sh -c "fzf --inline-info $* < /proc/$$/fd/0 > /proc/$$/fd/1"
+exec st -n 'fzfmenu' -c 'fzfmenu' -t 'fzfmenu' -g 120x25 -r -C \
+  -b 2 -B a54242 -e sh -c "fzf --inline-info $* < /proc/$$/fd/0 > /proc/$$/fd/1"
