@@ -10,7 +10,7 @@
 #
 # Depends on: maim, notify-send
 
-img_path="${TMP_SCREENSHOT_PATH:-/dev/shm/screenshot.png}"
+img_path="${TMP_SCREENSHOT_PATH:-/dev/shm/$USER-screenshot.png}"
 
 if ! maim "$@" -u "$img_path"; then
 	notify-send "screenshot failed" "maim failed to take a screenshot"
