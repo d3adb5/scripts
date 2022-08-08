@@ -1,0 +1,17 @@
+#!/bin/sh
+#
+# Since sux is dead or at least no longer packaged by mainstream distributions
+# and doesn't seem to be working with the AUR package, this script will take its
+# place in my system.
+#
+# Hopefully it works well.
+
+export SUDO_ASKPASS=/usr/lib/ssh/x11-ssh-askpass
+
+desiredUser="$1"
+shift
+
+xhost +SI:localuser:"$desiredUser"
+sudo -k --askpass -u "$desiredUser" "$@"
+xhost -SI:localuser:"$desiredUser"
+sudo -K
