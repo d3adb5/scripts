@@ -21,7 +21,7 @@ maybe_data_source="$(cat "$temp_filename")"
 
 mimetype="$(file -Lb --mime-type "$temp_filename")"
 
-xclip -r -selection c -t "$mimetype" < "$temp_filename"
+xclip -r -selection c -t "$mimetype" -i "$temp_filename"
 notify-send "Updated clipboard!" "Got data piped into it."
 
 rm "$temp_filename"
