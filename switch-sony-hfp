@@ -1,0 +1,26 @@
+#!/bin/sh
+#
+# This script is used to switch between the HFP and A2DP Bluetooth profiles for
+# the Sony WH-XB900N headphones. The headphones are going to be used as simple
+# high quality headphones most of the time, but this script will make it easy to
+# switch to HFP and back to A2DP when needed.
+
+paCard="$(pactl -f json list cards | jq -r '.[] | select(.name == "bluez_card.38_18_4C_03_33_1B")')"
+
+if [ -z "$paCard" ]; then
+  notify-send "WH-XB900N Toggle" "Sony WH-XB900N not found in PulseAudio!"
+  exit 1
+fi
+
+activeProfile="$(echo "$paCard" | jq -r '.active_profile')"
+
+if [ "$activeProfile" = "a2dp-sink-sbc_xq" ]; then
+  pactl set-card-profile bluez_card.38_18_4C_03_33_1B headset-head-unit-msbc
+  notify-send "WH-XB900N Toggle" "Switched to the HFP profile."
+elif [ "$activeProfile" = "headset-head-unit-msbc" ]; then
+  pactl set-card-profile bluez_card.38_18_4C_03_33_1B a2dp-sink-sbc_xq
+  notify-send "WH-XB900N Toggle" "Switched to the A2DP profile."
+else
+  notify-send "WH-XB900N Toggle" "Unknown profile: $activeProfile"
+  exit 1
+fi
