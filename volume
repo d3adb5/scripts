@@ -1,72 +1,106 @@
 #!/bin/bash
 #
-# Script to manipulate the volume for the currently active pulseaudio sink.
-# Perfect for keybinds. Makes use of pamixer for simplicity and dunstify for
-# notifications that can be edited (replaced).
+# Script to manipulate the volume for the currently active PulseAudio sink.
+# Works with PipeWire through its PulseAudio compatibility layer. Perfect for
+# keybinds. Makes use of pamixer for simplicity and notify-send for
+# notifications.
+#
+# The notification is marked as transient and is replaced by the next one to
+# avoid cluttering up notification damon history.
 #
 # This is what happens when someone refuses to use something like a Desktop
 # Environment while maintaining DE-like features, such as editable notifications
 # for volume changes.
 
-declare -r DUNST_ID_FILE="/tmp/dunst_id_volume"
+declare -r NOTIFICATION_ID_FILE="/tmp/volume-notification-id"
+declare notificationId
 
-function getDunstId
-{
-	[[ -e "$DUNST_ID_FILE" ]] && dunstId=$(< "$DUNST_ID_FILE")
-	if [[ ! -e "$DUNST_ID_FILE" || "$dunstId" -lt 0 ]]; then
-		dunstId=$RANDOM
-		echo "$dunstId" > "$DUNST_ID_FILE"
-	fi
-	declare -r dunstId="$dunstId"
+function get-image-path {
+  local volume="$1" muted="$2"
+
+  if [[ "$muted" = "true" ]]; then
+    echo "audio-volume-muted"
+    return
+  fi
+
+  case $(( volume / 33 )) in
+    0) echo "audio-volume-low";;
+    1) echo "audio-volume-medium";;
+    2) echo "audio-volume-high";;
+    *) echo "audio-volume-high";;
+  esac
 }
 
-function changeVolume
-{
-	local newVolume=$(( $(pamixer --get-volume) + $1 ))
-	local increment=$1
-	pamixer --set-volume "$newVolume"
-	if [ "$increment" -gt 0 ]; then
-		dunstify -r "$dunstId" "volume increased ($newVolume%)" \
-			"Increased by $increment%."
-	else
-		dunstify -r "$dunstId" "volume decreased ($newVolume%)" \
-			"Decreased by ${increment#-}%."
-	fi
+function read-notification-id {
+  [[ -e "$NOTIFICATION_ID_FILE" ]] || echo "$RANDOM" > "$NOTIFICATION_ID_FILE"
+  notificationId="$(< "$NOTIFICATION_ID_FILE")"
+  echo "$notificationId"
 }
 
-function toggleMute
-{
-	pamixer -t
-	if [[ "$(pamixer --get-mute)" = "false" ]]; then
-		dunstify -r "$dunstId" "volume unmuted" "You should hear things now."
-	else
-		dunstify -r "$dunstId" "volume muted" "You shouldn't hear a thing."
-	fi
+function change-volume {
+  local target=$(( $(pamixer --get-volume) + $1 )) increment=$1
+  local volume=$(( target < 0 ? 0 : target > 100 ? 100 : target ))
+  pamixer --set-volume "$volume"
 }
 
-function main
-{
-	getDunstId
-	while [[ "$#" -gt 0 ]]; do
-		case "$1" in
-			-i|--increase)
-				changeVolume 5
-				shift
-				;;
-			-d|--decrease)
-				changeVolume -5
-				shift
-				;;
-			-m|--mute)
-				toggleMute
-				shift
-				;;
-			*)
-				echo "unrecognized option: $1"
-				exit 1
-				;;
-		esac
-	done
+function mute {
+  pamixer -t
+}
+
+function notify-volume {
+  local increment="$1" volume="$2"
+  local title
+
+  if [[ "$increment" -gt 0 ]]
+    then title="Volume increased ($volume%)"
+    else title="Volume decreased ($volume%)"
+  fi
+
+  notify-send "$title" \
+    --app-name "Volume" -r "$notificationId" -p \
+    --hint "int:has-percentage:$volume" \
+    --hint "string:image-path:$(get-image-path "$volume")" \
+    --hint "boolean:transient:true" > "$NOTIFICATION_ID_FILE"
+}
+
+function notify-mute {
+  local volume muted title image
+
+  volume="$(pamixer --get-volume)"
+  muted="$(pamixer --get-mute)"
+  image="$(get-image-path "$volume" "$muted")"
+
+  if [[ "$muted" = "false" ]]
+    then title="Unmuted"
+    else title="Muted"
+  fi
+
+  notify-send "$title" \
+    --app-name "Volume" -r "$notificationId" -p \
+    --hint "boolean:transient:true" \
+    --hint "string:image-path:$image" > "$NOTIFICATION_ID_FILE"
+}
+
+function main {
+  read-notification-id
+  case "$1" in
+    -i|--increase|up)
+      change-volume 5
+      notify-volume 5 "$(pamixer --get-volume)"
+      ;;
+    -d|--decrease|down)
+      change-volume -5
+      notify-volume -5 "$(pamixer --get-volume)"
+      ;;
+    -m|--mute|toggle)
+      mute
+      notify-mute
+      ;;
+    *)
+      echo "unrecognized option: $1, use one of -i, -d, -m"
+      exit 1
+      ;;
+  esac
 }
 
 main "$@"
