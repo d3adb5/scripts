@@ -6,7 +6,7 @@
 
 case "${PINENTRY_USER_DATA:-curses}" in
   gui|gtk)
-    exec /usr/bin/pinentry-gtk-2 "$@"
+    exec /usr/bin/pinentry-gtk "$@"
     ;;
 
   cli|curses)
