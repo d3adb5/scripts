@@ -10,16 +10,4 @@
 #
 # Depends on: st, fzf
 
-menuOptions=$(mktemp)
-selection=$(mktemp)
-
-while read -r line; do
-  echo "$line" >> "$menuOptions"
-done
-
-st -n 'fzfmenu' -c 'fzfmenu' -t 'fzfmenu' -g 120x25 -r -C \
-  -b 2 -B a54242 -e sh -c "fzf --inline-info $* < '$menuOptions' > '$selection'"
-
-cat "$selection"
-
-rm -f "$menuOptions" "$selection"
+exec stmenu fzf --inline-info "$@"
