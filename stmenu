@@ -1,0 +1,14 @@
+#!/bin/sh
+#
+# A script to invoke any command within an st terminal, setting the override
+# redirect flag and centering it on the screen. The input is piped into the
+# underlying command, and the output of the underlying command is printed out
+# into the terminal.
+#
+# If it's useful to you, the window class is 'stmenu'. You can use this to
+# center the window manually through your window manager configuration.
+#
+# Depends on: st (my custom fork)
+
+exec st -n 'stmenu' -c 'stmenu' -t 'stmenu' -g 120x25 -r -C \
+  -b 2 -B a54242 -e sh -c "$* < /proc/$$/fd/0 > /proc/$$/fd/1"
