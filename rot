@@ -12,6 +12,11 @@
 # file itself is /tmp/rot-trigger by default, but can be overriden by the
 # ROT_WATCH_FILE environment variable.
 #
+# If no command is given, the script will create a temporary shell script and
+# open it in the editor specified by the $EDITOR environment variable. This
+# script will be run when the file is opened. The temporary script will be
+# removed when the main script exits.
+#
 # Example use:
 #
 #   Edit some file on Vim in one terminal, run the command:
@@ -27,6 +32,7 @@
 # Dependencies: inotify-tools
 
 watchFile="${ROT_WATCH_FILE:-/tmp/rot-trigger}"
+targetScript=""
 
 if [ ! -e "$watchFile" ]; then
   echo "File '$watchFile' doesn't exist. Creating it..." && touch "$watchFile"
@@ -34,6 +40,28 @@ if [ ! -e "$watchFile" ]; then
   trap exit INT HUP TERM
 fi
 
+if [ $# -eq 0 ]; then
+  if ! command -v vipe >/dev/null 2>&1; then
+    echo "No command given and 'vipe' not found. Exiting." >&2
+    exit 1
+  fi
+
+  targetScript=$(mktemp /tmp/rot-script.XXXXXX.sh)
+  trap 'rm -f "$targetScript" "$watchFile"' EXIT
+
+  echo "#!/bin/sh" > "$targetScript"
+  echo "# Script to run when '$watchFile' is opened." >> "$targetScript"
+  chmod +x "$targetScript"
+
+  "$EDITOR" "$targetScript"
+fi
+
 while inotifywait -e open "$watchFile"; do
-  "$@"
+  if [ -f "$targetScript" ]; then
+    echo "Running script '$targetScript'..."
+    "$targetScript"
+  else
+    echo "Running command: $*"
+    "$@"
+  fi
 done
